@@ -30,7 +30,8 @@ Preferences preferences;
 String saved_ssid = "";
 String saved_pass = "";
 String saved_tg_id = "";
-String saved_server_url = "https://pilot.myvnc.com";
+String saved_server_url = "http://pilot.myvnc.com:48731";
+String saved_telegram_endpoint = "/telegram/test";
 int saved_tz_offset = 0;
 bool isAPMode = false;
 bool timeSynced = false;
@@ -286,6 +287,7 @@ a:hover { text-decoration: underline; }
             <button class="good" onclick="runCmd('tgtest')">Telegram Test</button>
             <button onclick="changeTgId()">Change Telegram ID</button>
             <button onclick="changeServer()">Change Server</button>
+            <button onclick="changeEndpoint()">Change Endpoint</button>
             <button onclick="runCmd('clear')">Clear Log</button>
             <button onclick="confirmCmd('reboot', 'Reboot ESP-OOB now?')">Reboot</button>
             <button class="danger" onclick="confirmCmd('resetwifi', 'Erase Wi-Fi settings and reboot to setup mode?')">Reset Wi-Fi</button>
@@ -361,12 +363,20 @@ function changeTgId() {
     runCmd('settg ' + id);
 }
 function changeServer() {
-    let url = prompt('Enter server URL:', 'https://pilot.myvnc.com');
+    let url = prompt('Enter server URL:', 'http://pilot.myvnc.com:48731');
     if (url === null) return;
     url = url.trim();
     if (!url) { alert('Server URL is empty.'); return; }
     if (!url.startsWith('http://') && !url.startsWith('https://')) { alert('URL must start with http:// or https://'); return; }
     runCmd('setserver ' + url);
+}
+function changeEndpoint() {
+    let endpoint = prompt('Enter Telegram endpoint:', '/telegram/test');
+    if (endpoint === null) return;
+    endpoint = endpoint.trim();
+    if (!endpoint) { alert('Endpoint is empty.'); return; }
+    if (!endpoint.startsWith('/')) { alert('Endpoint must start with /'); return; }
+    runCmd('setendpoint ' + endpoint);
 }
 function uploadOTA() {
     let file = document.getElementById('file').files[0];
@@ -471,7 +481,10 @@ bool postToServer(String endpoint, String jsonBody) {
             return false;
         }
 
+        http.setTimeout(10000);
+        http.setReuse(false);
         http.addHeader("Content-Type", "application/json");
+        http.addHeader("User-Agent", "ESP-OOB-Supervisor/1.0");
         code = http.POST(jsonBody);
         payload = http.getString();
         http.end();
@@ -483,7 +496,10 @@ bool postToServer(String endpoint, String jsonBody) {
             return false;
         }
 
+        http.setTimeout(10000);
+        http.setReuse(false);
         http.addHeader("Content-Type", "application/json");
+        http.addHeader("User-Agent", "ESP-OOB-Supervisor/1.0");
         code = http.POST(jsonBody);
         payload = http.getString();
         http.end();
@@ -505,7 +521,8 @@ bool sendServerTelegramTest() {
 
     String json = "{";
     json += "\"telegram_id\":\"" + jsonEscape(saved_tg_id) + "\",";
-    json += "\"device\":\"ESP-OOB\",";
+    json += "\"device_id\":\"esp-oob-001\",";
+    json += "\"device_name\":\"ESP-OOB Supervisor\",";
     json += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
     json += "\"rssi\":" + String(WiFi.RSSI()) + ",";
     json += "\"free_heap\":" + String(ESP.getFreeHeap()) + ",";
@@ -515,7 +532,7 @@ bool sendServerTelegramTest() {
     json += "}";
 
     sysLog("Sending Telegram test via VPS...");
-    return postToServer("/api/esp/telegram/test", json);
+    return postToServer(saved_telegram_endpoint, json);
 }
 
 // =========================================================================
@@ -590,6 +607,7 @@ void setupWebServer() {
         json += "\"saved_ssid\":\"" + jsonEscape(saved_ssid) + "\",";
         json += "\"telegram_id\":\"" + jsonEscape(saved_tg_id) + "\",";
         json += "\"server_url\":\"" + jsonEscape(saved_server_url) + "\",";
+        json += "\"telegram_endpoint\":\"" + jsonEscape(saved_telegram_endpoint) + "\",";
         json += "\"ap_ip\":\"" + WiFi.softAPIP().toString() + "\",";
         json += "\"sta_ip\":\"" + WiFi.localIP().toString() + "\",";
         json += "\"wifi_status\":" + String(WiFi.status()) + ",";
@@ -616,7 +634,8 @@ void setupWebServer() {
         sysLog("root@esp:~# " + cmd);
 
         if (cmd == "help") {
-            sysLog("Commands: help, clear, ip, status, time, sync_time, tgtest, tgid, settg, setserver, reboot, resetwifi, resetall, nano, mc");
+            sysLog("Commands: help, clear, ip, status, time, sync_time, tgtest, tgid, settg, setserver, setendpoint, reboot, resetwifi, resetall, nano, mc");
+            sysLog("Default Telegram endpoint: /telegram/test");
         }
         else if (cmd == "clear") {
             logBuffer = "";
@@ -637,6 +656,7 @@ void setupWebServer() {
             sysLog("RSSI: " + String(WiFi.RSSI()));
             sysLog("Telegram ID: " + saved_tg_id);
             sysLog("Server URL: " + saved_server_url);
+            sysLog("Telegram endpoint: " + saved_telegram_endpoint);
             sysLog("Time synced: " + String(timeSynced ? "yes" : "no"));
             sysLog("Time: " + currentTimeString());
             sysLog("Free heap: " + String(ESP.getFreeHeap()));
@@ -689,6 +709,26 @@ void setupWebServer() {
                 preferences.end();
 
                 sysLog("Server URL saved: " + saved_server_url);
+            }
+        }
+        else if (cmd.startsWith("setendpoint ")) {
+            String endpoint = cmd.substring(12);
+            endpoint.trim();
+
+            if (endpoint == "") {
+                sysLog("Usage: setendpoint /telegram/test");
+            }
+            else if (!endpoint.startsWith("/")) {
+                sysLog("Invalid endpoint. It must start with /");
+            }
+            else {
+                saved_telegram_endpoint = endpoint;
+
+                preferences.begin("oob_config", false);
+                preferences.putString("tg_endpoint", saved_telegram_endpoint);
+                preferences.end();
+
+                sysLog("Telegram endpoint saved: " + saved_telegram_endpoint);
             }
         }
         else if (cmd == "tgtest") {
@@ -821,11 +861,16 @@ void setupWebServer() {
                 return;
             }
 
+            if (saved_telegram_endpoint == "/api/esp/telegram/test") {
+                saved_telegram_endpoint = "/telegram/test";
+            }
+
             preferences.begin("oob_config", false);
             preferences.putString("ssid", new_ssid);
             preferences.putString("pass", new_pass);
             preferences.putString("tgid", new_tg_id);
             preferences.putString("server", saved_server_url);
+            preferences.putString("tg_endpoint", saved_telegram_endpoint);
             preferences.putInt("tz", new_tz);
             preferences.end();
 
@@ -873,9 +918,20 @@ void setup() {
     saved_ssid = preferences.getString("ssid", "");
     saved_pass = preferences.getString("pass", "");
     saved_tg_id = preferences.getString("tgid", "");
-    saved_server_url = preferences.getString("server", "https://pilot.myvnc.com");
+    saved_server_url = preferences.getString("server", "http://pilot.myvnc.com:48731");
+    saved_telegram_endpoint = preferences.getString("tg_endpoint", "/telegram/test");
     saved_tz_offset = preferences.getInt("tz", 0);
     preferences.end();
+
+    if (saved_telegram_endpoint == "/api/esp/telegram/test") {
+        saved_telegram_endpoint = "/telegram/test";
+
+        preferences.begin("oob_config", false);
+        preferences.putString("tg_endpoint", saved_telegram_endpoint);
+        preferences.end();
+
+        sysLog("Migrated Telegram endpoint to: " + saved_telegram_endpoint);
+    }
 
     if (saved_ssid == "") {
         sysLog("No WiFi config found.");
@@ -924,7 +980,8 @@ void setup() {
             printToScreen("WiFi Failed", "Starting AP", "192.168.4.1");
 
             preferences.begin("oob_config", false);
-            preferences.clear();
+            preferences.remove("ssid");
+            preferences.remove("pass");
             preferences.end();
 
             saved_ssid = "";
