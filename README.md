@@ -4,15 +4,15 @@ An ESP32-based hardware supervisor for Out-of-Band Management (OOBM) of autonomo
 
 ## ⚠️ The Problem
 Remote autonomous devices (like solar-powered LoRa nodes on trees or hidden routers) occasionally freeze, require hard resets, or need firmware updates. 
-* Relying on the target device's internal Wi-Fi is power-hungry and risky (high chance of bricking during Over-The-Air updates).
+* Relying on the target device's internal Wi-Fi is power hungry and risky (high chance of bricking during Over-The-Air updates).
 * Exposing management ports to the public internet invites scanners and botnets.
 * Physical access to the device is often difficult or impossible.
 
 ## 💡 The Solution
-A hardware-independent "watchdog" and transparent gateway built on a low-cost ESP32 microcontroller. It connects to the target device (e.g., Heltec, Wio, OpenWRT Router) via physical wires (UART / GPIO) and acts as an isolated bridge between the hardware and your Telegram bot.
+A hardware independent "watchdog" and transparent gateway built on a low cost ESP32 microcontroller. It connects to the target device (e.g., Heltec, Wio, OpenWRT Router) via physical wires (UART / GPIO) and acts as an isolated bridge between the hardware and your Telegram bot.
 
 ## ✨ Key Features
-* **Zero-Trust Security:** No open ports on the internet. The server generates a dynamic, single-use TCP port with a 60-second window strictly upon request from an authorized Telegram user.
+* **Zero Trust Security:** No open ports on the internet. The server generates a dynamic, single use TCP port with a 60-second window strictly upon request from an authorized Telegram user.
 * **Transparent TCP Proxy:** The ESP32 blindly forwards bytes between a TCP socket and the target device's serial port. Manage remote nodes using the **official Meshtastic mobile app** or connect via SSH to a router, exactly as if connected via USB.
 * **Hardware Watchdog:** Remotely hard-reset a frozen device by triggering its `RST` or `Power` pins via a Telegram command.
 * **Captive Portal Setup:** Easy initial deployment. Enter your Wi-Fi credentials, Telegram ID, and server URL through a web interface on the first boot.
@@ -20,9 +20,9 @@ A hardware-independent "watchdog" and transparent gateway built on a low-cost ES
 * **Self-Hosted Backend:** The routing server and Telegram bot are easily deployable on any VPS using Docker.
 
 ## 🛠️ Repository Structure
-* `/firmware` — C++ source code for the ESP32 (PlatformIO project). Handles Wi-Fi, Captive Portal, WebSockets, and UART bridging.
-* `/server` — Lightweight asynchronous Python backend. Manages Telegram bot interactions, dynamic port routing, and the SQLite user database.
-* `docker-compose.yml` — One-click deployment for the server side.
+* `/firmware`   C++ source code for the ESP32 (PlatformIO project). Handles Wi-Fi, Captive Portal, WebSockets, and UART bridging.
+* `/server`  Lightweight asynchronous Python backend. Manages Telegram bot interactions, dynamic port routing, and the SQLite user database.
+* `docker-compose.yml`   One-click deployment for the server side.
 
 ## 🛒 Hardware Requirements (BOM)
 1. **ESP32 Microcontroller:** ESP32-C3 Super Mini is highly recommended for its low power consumption.
