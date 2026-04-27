@@ -1,0 +1,11 @@
+services:
+  esp-oob-telegram-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: esp-oob-telegram-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${SERVER_PORT:-48731}:48731"
