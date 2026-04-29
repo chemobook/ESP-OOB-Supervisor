@@ -189,11 +189,6 @@ ESP-OOB-Supervisor/
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).    C -- No --> E[Start internal Access Point]
-    D --> F[Web UI becomes available]
-    E --> F
-    F --> G[Admin services the target node]
-    G --> H([ESP32 returns to deep sleep])
-    
+This project is licensed under the [MIT License](LICENSE).
     style A fill:#4CAF50,stroke:#388E3C,color:white
     style H fill:#2196F3,stroke:#1976D2,color:white
